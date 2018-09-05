@@ -1,6 +1,7 @@
 /** publish.js
  * Chrome拡張をChromeウェブストアに公開するスクリプト
  * @see https://developer.chrome.com/webstore/using_webstore_api
+ * @see https://developer.chrome.com/webstore/webstore_api/items/publish
  *
  * @param {string} client_id
  * @param {string} client_secret
@@ -9,8 +10,9 @@
  * @param {string} zip_file_path
  */
 
-var request = require("request-promise");
-var fs      = require('fs');
+const request     = require("request-promise");
+const fs          = require('fs');
+const querystring = require('querystring');
 
 /** refreshAccessToken
  * デフォルトでは、得られた access_token は40分でExpireするため、
@@ -69,15 +71,16 @@ function uploadPackageFile(access_token, zip_file_path, app_id) {
  * @param {string} access_token 
  * @param {string} app_id 
  */
-function publishUploadedPackageFile(access_token, app_id) {
-  return request.post(`https://www.googleapis.com/chromewebstore/v1.1/items/${app_id}/publish`, {
-    method: "POST",
-    headers: {
+function publishUploadedPackageFile(access_token, app_id, trustedTesters) {
+  const headers = {
       "Authorization":      `Bearer ${access_token}`,
       "x-goog-api-version": "2",
       "Content-Length":     "0",
-      "publishTarget":      "trustedTesters", // TODO: いずれちゃんと渡せるようにする
-    }
+  };
+  const query = querystring.stringify({publishTarget: trustedTesters ? "trustedTesters" : "default"});
+  return request.post(`https://www.googleapis.com/chromewebstore/v1.1/items/${app_id}/publish?${query}`, {
+    method:  "POST",
+    headers: headers,
   });
 }
 
@@ -89,15 +92,17 @@ function main(zip_file_path, client_id, client_secret, refresh_token, app_id) {
   client_secret = client_secret || process.env.GOOGLEAPI_CLIENT_SECRET;
   refresh_token = refresh_token || process.env.GOOGLEAPI_REFRESH_TOKEN;
   app_id        = app_id        || process.env.CHROMEWEBSTORE_APP_ID;
+  let access_token;
   return refreshAccessToken(client_id, client_secret, refresh_token).then(res => {
-    const access_token = JSON.parse(res).access_token;
+    access_token = JSON.parse(res).access_token;
     if (!access_token) throw new Error("couldn't retrieve access_token from this refresh_token");
     return Promise.resolve(access_token);
   }).then(access_token => {
     return uploadPackageFile(access_token, zip_file_path, app_id);
   }).then(res => {
+    return publishUploadedPackageFile(access_token, app_id, true);
+  }).then(res => {
     console.log(res);
-    // return publishUploadedPackageFile(access_token, app_id);
   });
 }
 
@@ -117,5 +122,8 @@ if (require.main == module) {
     console.error(`zip file is not found on path ${zip_file_path}`);
     process.exit(1);
   }
-  main(zip_file_path);
+  main(zip_file_path).catch(err => {
+    console.error(err);
+    process.exit(1);
+  });
 }
