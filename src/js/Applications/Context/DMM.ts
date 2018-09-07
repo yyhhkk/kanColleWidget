@@ -13,6 +13,8 @@ export default class DMM {
   private client;
   private tab: chrome.tabs.Tab;
   private frame: Frame;
+  private initialized: boolean = false;
+  private resizeTimerId: number;
 
   constructor(private scope: Window) {
     this.client = new Client(chrome.runtime, false);
@@ -35,8 +37,36 @@ export default class DMM {
     this.frame = frame;
 
     this.resizeToAdjustAero();
-    this.shiftFrame();
+    this.shiftFrame(this.frame.zoom);
     this.injectStyles();
+    this.hideNavigations(Const.HiddenElements);
+
+    setTimeout(() => this.initialized = true, 200);
+  }
+
+  /**
+   * 画面がリサイズしたときのルーチン
+   * onresizeイベントはすごい勢いでたくさん発火するので、
+   * ある程度debounceしている。
+   */
+  public onresize() {
+
+    if (!this.initialized) {
+      return false;
+    }
+
+    const debounce = 1000;
+    if (this.resizeTimerId > 0) {
+      clearTimeout(this.resizeTimerId);
+    }
+
+    this.resizeTimerId = setTimeout(() => {
+      // 現在のウィンドウの形が、オリジナルより横にながければ負の値、縦にながければ正の値を取る。
+      const a = (this.scope.innerHeight / this.scope.innerWidth) - (Const.GameHeight / Const.GameWidth);
+      // 短辺を基準にズーム値を決定する
+      const zoom = a < 0 ? this.scope.innerHeight / Const.GameHeight : this.scope.innerWidth / Const.GameWidth;
+      this.shiftFrame(zoom).then();
+    }, debounce);
   }
 
   /**
@@ -66,6 +96,19 @@ export default class DMM {
   }
 
   /**
+   * 設定しだいでは、DMMの要素を消す
+   * TODO: 設定できるようにする
+   */
+  private hideNavigations(targets: string[] = []) {
+    targets.map(selector => {
+      const e = document.querySelector(selector) as HTMLElement;
+      if (e && e.style) {
+        e.style.visibility = "hidden";
+      }
+    });
+  }
+
+  /**
    * エアロ領域の計算と微調整
    * zoom値が必要になるので、this.frameが正しい値になっていることを確認のこと
    */
@@ -79,19 +122,30 @@ export default class DMM {
   /**
    * ゲーム表示領域を画面ぴったりに移動する
    */
-  private async shiftFrame() {
+  private async shiftFrame(zoom: number) {
 
-    const sleep = (sec: number) => new Promise(resolve => setTimeout(() => resolve(), sec * 1000));
-    await sleep(4); // FIXME: なんだこれ
+    // FIXME: iframe内のロードが終わる前に動かすと真っ白になる？
+    // const sleep = (sec: number) => new Promise(resolve => setTimeout(() => resolve(), sec * 1000));
+    // await sleep(4);
 
     const iframe = this.scope.document.querySelector(Const.GameIFrame) as HTMLIFrameElement;
     iframe.style.position = "absolute";
     iframe.style.zIndex = "2";
-
-    const zoom = this.frame.zoom;
     iframe.style.transform = `scale(${zoom})`;
-    iframe.style.left = `${600 * (zoom - 1)}px`;
-    iframe.style.top  = `${Math.round(414 * (zoom - 1) - 77)}px`;
+
+    // コンテンツを中央に寄せる
+    const wrapper = this.scope.document.querySelector(Const.GameWrapper) as HTMLDivElement;
+    wrapper.style.position = "fixed";
+    wrapper.style.width = "100vw";
+    wrapper.style.height = "100vh";
+    wrapper.style.top = "0";
+    wrapper.style.left = "0";
+    wrapper.style.display = "flex";
+    wrapper.style.alignItems = "center";
+    wrapper.style.justifyContent = "center";
+    wrapper.style.zIndex = "1";
+    // 動的なものはこれだけなので、これ以外はinjectに持っていってもいいかもしれない
+    wrapper.style.paddingTop = `${54 * zoom}px`;
   }
 
   private injectStyles() {

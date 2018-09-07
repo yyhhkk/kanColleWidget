@@ -96,9 +96,7 @@ class WindowService {
       height: data.height,
       width: data.width,
     };
-    tab = await this.update(tab, info);
-    tab = await this.zoom(tab, frame.zoom);
-    return tab;
+    return await this.update(tab, info);
   }
 
   /**
@@ -117,7 +115,7 @@ class WindowService {
    * @param tabId
    */
   public knows(tabId: number): Launched {
-    return this.launched.tab.id === tabId ? this.launched : null;
+    return this.launched && this.launched.tab.id === tabId ? this.launched : null;
   }
 
 }
