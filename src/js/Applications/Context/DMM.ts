@@ -1,6 +1,7 @@
 import {Client, Router} from "chomex";
 import Const from "../../Constants";
-import Frame from "../Background/Models/Frame";
+import Frame from "../Models/Frame";
+import InAppButtons from "./Features/InAppButtons";
 
 /**
  * http://www.dmm.com/netgame/social/-/gadgets/=/app_id=854854/
@@ -32,7 +33,7 @@ export default class DMM {
       return;
     }
 
-    const {tab, frame} = data;
+    const {tab, frame, configs} = data;
     this.tab = tab;
     this.frame = frame;
 
@@ -40,6 +41,9 @@ export default class DMM {
     this.shiftFrame(this.frame.zoom);
     this.injectStyles();
     this.hideNavigations(Const.HiddenElements);
+
+    // DEBUG: ホントはConfigを見てやる。/window/decorationのレスポンスに必要なConfigも含めちゃえばいいのでは？
+    this.showInAppButtons(configs);
 
     setTimeout(() => this.initialized = true, 200);
   }
@@ -93,6 +97,18 @@ export default class DMM {
   private reconfigure(message: {frame: Frame}) {
     this.frame = message.frame;
     this.resizeToAdjustAero();
+  }
+
+  /**
+   * アプリ内ボタンの表示
+   */
+  private showInAppButtons(configs: {[key: string]: any}) {
+
+    const buttons = new InAppButtons(this.scope.document, configs, this.client);
+    if (!buttons.enabled) {
+      return;
+    }
+    this.scope.document.body.appendChild(buttons.element());
   }
 
   /**

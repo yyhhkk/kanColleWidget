@@ -1,4 +1,4 @@
-import Frame from "../Applications/Background/Models/Frame";
+import Frame from "../Applications/Models/Frame";
 import Const from "../Constants";
 
 export interface Launched {
@@ -22,6 +22,7 @@ class WindowService {
 
   private tabs: typeof chrome.tabs;
   private windows: typeof chrome.windows;
+  private extension: typeof chrome.extension;
 
   // すでに作成されているタブ
   private launched: Launched;
@@ -29,6 +30,7 @@ class WindowService {
   constructor(mod = chrome) {
     this.tabs = mod.tabs;
     this.windows = mod.windows;
+    this.extension = mod.extension;
   }
 
   /**
@@ -111,11 +113,30 @@ class WindowService {
   }
 
   /**
+   * 窓のミュートをする
+   */
+  public mute(tab: chrome.tabs.Tab, mute: boolean = true): Promise<chrome.tabs.Tab> {
+    return new Promise((resolve) => {
+      this.tabs.update(tab.id, {muted: mute}, (t) => resolve(t));
+    });
+  }
+
+  /**
    * このサービス経由でLaunchされたタブかどうか返す
    * @param tabId
    */
   public knows(tabId: number): Launched {
     return this.launched && this.launched.tab.id === tabId ? this.launched : null;
+  }
+
+  public openCapturePage(params: {key: any}): Promise<chrome.tabs.Tab> {
+    const url = this.extension.getURL("/dest/html/capture.html");
+    const search = new URLSearchParams(params);
+    return new Promise(resolve => {
+      this.tabs.create({ url: url + "?" + search.toString() }, (tab) => {
+        resolve(tab);
+      });
+    });
   }
 
 }

@@ -1,11 +1,14 @@
 {
   "manifest_version": 2,
   "name": "test-艦これウィジェット",
-  "version": "3.0.0.10",
-  "version_name": "3.0.0-alpha.10",
+  "version": "3.0.0.15",
+  "version_name": "3.0.0-alpha.15",
   "description": "「艦これ」をほどよく快適にたのしく遊べるようにするやつです",
   "permissions": [
-    "tabs"
+    "tabs",
+    "webRequest",
+    "alarms",
+    "<all_urls>"
   ],
   "icons": {
     "16": "dest/img/icons/app.16.png",
@@ -26,6 +29,15 @@
       ],
       "js": [
         "dest/js/dmm.js"
+      ]
+    },
+    {
+      "matches": [
+        "http://*/kcs2/index.php?*"
+      ],
+      "all_frames": true,
+      "js": [
+        "dest/js/kcs2.js"
       ]
     }
   ],
